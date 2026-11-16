@@ -1,0 +1,18 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+**/.env
+!**/.env.example
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/**/dry-run/
+contracts/broadcast/**/run-latest.json.sensitive
+
+# node
+node_modules/
+web/dist/
+*.log
+.DS_Store

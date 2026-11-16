@@ -1,0 +1,11 @@
+{
+  "name": "paybound-assistant",
+  "private": true,
+  "type": "module",
+  "description": "Propose-only AI draft layer for Paybound. Never holds keys.",
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "engines": { "node": ">=22.6" }
+}
