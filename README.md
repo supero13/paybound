@@ -63,7 +63,14 @@ cp .env.example .env             # fill DEPLOYER_PRIVATE_KEY (a throwaway TESTNE
 cd contracts && set -a && . ../.env && set +a
 forge script script/Deploy.s.sol --rpc-url aevum --broadcast --legacy
 ```
-<!-- TODO: verification command once confirmed against explorer-test.qday.info -->
+Verify on the explorer (Blockscout):
+```bash
+forge verify-contract <REGISTRY> src/PayeeRegistry.sol:PayeeRegistry --chain-id 44005 \
+  --verifier blockscout --verifier-url https://explorer-test.qday.info/api/
+forge verify-contract <VAULT> src/PayboundVault.sol:PayboundVault --chain-id 44005 \
+  --verifier blockscout --verifier-url https://explorer-test.qday.info/api/ \
+  --constructor-args $(cast abi-encode "c(address,address,address)" 0x456569838f1d43009A91ebA4263147Afd7233483 <REGISTRY> <GUARDIAN>)
+```
 
 ### Web
 ```bash
