@@ -10,8 +10,21 @@
 | Network | QDay Aevum Testnet, chain ID `44005` (`0xABE5`) |
 | RPC / Explorer | `https://rpc-test.qday.info` / https://explorer-test.qday.info |
 | Payment token | tUSD8 `0x456569838f1d43009A91ebA4263147Afd7233483` (6 decimals) |
-| PayeeRegistry | _TBD: not deployed yet_ |
-| PayboundVault | _TBD: not deployed yet_ |
+| PayeeRegistry | [`0x5942f4Ce67411cF4AE1d794535Ebdf9374E7659a`](https://explorer-test.qday.info/address/0x5942f4Ce67411cF4AE1d794535Ebdf9374E7659a) |
+| PayboundVault | [`0xB332eea4bBb9CA78371C63BccB0B5b50C213383E`](https://explorer-test.qday.info/address/0xB332eea4bBb9CA78371C63BccB0B5b50C213383E) |
+
+## Deployment (Aevum Testnet 44005)
+Deployed 17 Nov 2026 at block 3390615 by `0x45C5B3c807Da0f46eD82539924a5EFe0A010ba6f` (a testnet-only deployer, also the guardian for now). Full record: [`deployments/aevum-44005.json`](deployments/aevum-44005.json).
+
+| Contract | Address | Deploy tx |
+|---|---|---|
+| PayeeRegistry | [`0x5942f4Ce67411cF4AE1d794535Ebdf9374E7659a`](https://explorer-test.qday.info/address/0x5942f4Ce67411cF4AE1d794535Ebdf9374E7659a) | [`0x80299e42…3ec5`](https://explorer-test.qday.info/tx/0x80299e42a036713c9e612a73aded64d42b0845ef94e8eb5ff6dc1fcf6a803ec5) |
+| PayboundVault | [`0xB332eea4bBb9CA78371C63BccB0B5b50C213383E`](https://explorer-test.qday.info/address/0xB332eea4bBb9CA78371C63BccB0B5b50C213383E) | [`0x2b171f43…b13a`](https://explorer-test.qday.info/tx/0x2b171f436649abced5c8863f60f381db7d7d35c796438e72f8bf59f3af15b13a) |
+| tUSD8 (official) | [`0x456569838f1d43009A91ebA4263147Afd7233483`](https://explorer-test.qday.info/address/0x456569838f1d43009A91ebA4263147Afd7233483) | n/a |
+
+Constructor: `PayboundVault(tUSD8, PayeeRegistry, guardian)`. Compiler: solc 0.8.24, optimizer 200 runs, evmVersion `paris`. The on-chain runtime bytecode matches a local `forge build` byte for byte.
+
+**Source verification:** submitted to the explorer on 17 Nov 2026, but it returned `Fail - Unable to verify`. The explorer's verifier appears not to be set up yet: it lists no Solidity compiler versions, and no contract on it is verified, not even the official tUSD8. Re-run the `forge verify-contract` commands below once that's fixed.
 
 ## The problem
 <!-- TODO: 1 paragraph. Creators pay collaborators by handle, not by raw address; lookalike / poisoned addresses and unlimited approvals cause losses; AI agents that can move money need hard limits. -->

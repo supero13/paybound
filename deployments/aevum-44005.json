@@ -1,0 +1,11 @@
+{
+  "chainId": 44005,
+  "network": "QDay Aevum Testnet",
+  "deployedAt": "2026-11-17",
+  "block": 3390615,
+  "deployer": "0x45C5B3c807Da0f46eD82539924a5EFe0A010ba6f",
+  "guardian": "0x45C5B3c807Da0f46eD82539924a5EFe0A010ba6f",
+  "tUSD8": "0x456569838f1d43009A91ebA4263147Afd7233483",
+  "PayeeRegistry": { "address": "0x5942f4Ce67411cF4AE1d794535Ebdf9374E7659a", "tx": "0x80299e42a036713c9e612a73aded64d42b0845ef94e8eb5ff6dc1fcf6a803ec5" },
+  "PayboundVault": { "address": "0xB332eea4bBb9CA78371C63BccB0B5b50C213383E", "tx": "0x2b171f436649abced5c8863f60f381db7d7d35c796438e72f8bf59f3af15b13a" }
+}
