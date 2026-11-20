@@ -2,11 +2,11 @@
 
 **An AI payout assistant for creators on QDay Aevum.** Tell it who to pay in plain English; it drafts the payment. tUSD8 only ever goes to payees you've confirmed, inside on-chain spending limits you can revoke at any time. The assistant drafts, the chain enforces, and you stay in control.
 
-> Built for **QDay Aevum Builder Challenge #1**. Tracks: Native AI Assistants and Confirmation of Payee. **Testnet only. Test tokens only.**
+> Built for **QDay Aevum Builder Challenge #1**. **Track: Confirmation of Payee** (with an AI drafting layer from the Native AI Assistants track). **Testnet only. Test tokens only.**
 
 | | |
 |---|---|
-| Live demo | _TBD (week 2)_ |
+| Live demo | https://paybound-qday.netlify.app (open it in your wallet's in-app browser on mobile) |
 | Network | QDay Aevum Testnet, chain ID `44005` (`0xABE5`) |
 | RPC / Explorer | `https://rpc-test.qday.info` / https://explorer-test.qday.info |
 | Payment token | tUSD8 `0x456569838f1d43009A91ebA4263147Afd7233483` (6 decimals) |
@@ -25,6 +25,38 @@ Deployed 17 Nov 2026 at block 3390615 by `0x45C5B3c807Da0f46eD82539924a5EFe0A010
 Constructor: `PayboundVault(tUSD8, PayeeRegistry, guardian)`. Compiler: solc 0.8.24, optimizer 200 runs, evmVersion `paris`. The on-chain runtime bytecode matches a local `forge build` byte for byte.
 
 **Source verification:** submitted to the explorer on 17 Nov 2026, but it returned `Fail - Unable to verify`. The explorer's verifier appears not to be set up yet: it lists no Solidity compiler versions, and no contract on it is verified, not even the official tUSD8. Re-run the `forge verify-contract` commands below once that's fixed.
+
+## Web app (week 2)
+Mobile-first, bold UI with five tabs:
+
+| Tab | What it does |
+|---|---|
+| ⚡ **Pay** | Pick a confirmed payee, enter an amount, and see a live on-chain `previewPayment()` result in plain English (for example "Amount is above this payee's per-payment cap") **before** signing. Every payment records a `ref` hash of the approved draft. |
+| 👥 **Payees** | Add a payee as Pending, then **confirm by re-entering the full address**, after an optional 0–168h waiting period. Remove payees. **Address-poisoning warning** when a new address shares its first and last 4 hex chars with an existing payee, a past payee, or a recent counterparty. |
+| 🛡️ **Limits** | Per-payment cap, period cap (1h / 1d / 1w / 30d), and expiry per payee; revoke. Agent sessions: grant and revoke with their own caps and expiry. Pause or unpause all payments. |
+| 🏦 **Vault** | Deposit (exact-amount `approve` → `deposit`, never unlimited) and withdraw. Balances in tUSD8 and tQDAY. |
+| 🧾 **Receipts** | Every `PaymentExecuted` event shows chain ID, token, tx hash (explorer link), log index, block, payee, amount, and memo. Logs are fetched in ≤1000-block pages from the deploy block, cached locally, and deduped by `txHash:logIndex`. **Payment seen** means it's in the `latest` chain; **Payment final** means it's at or below the node's `finalized` block. |
+
+Amounts are `bigint` end to end; decimals are pinned to 6 in `web/src/contracts.ts`. The app refuses any chain other than 44005, simulates every transaction first so reverts show a readable reason, and maps every contract error and `Blocker` code to plain English.
+
+| Pay (blocked over cap) | Payees (poisoning warning) | Limits | Receipts |
+|---|---|---|---|
+| ![](docs/screenshots/mobile-pay.png) | ![](docs/screenshots/mobile-payees.png) | ![](docs/screenshots/mobile-limits.png) | ![](docs/screenshots/mobile-receipts.png) |
+
+## End-to-end smoke test (Aevum 44005, 20 Nov 2026)
+`scripts/smoke.sh` (uses gitignored `.env` / `.env.payee`):
+
+| Step | Tx |
+|---|---|
+| approve 0.5 tUSD8 | [0xe0a36f…9507](https://explorer-test.qday.info/tx/0xe0a36fbd11b59c629c04a08e8e539a645782244cca3e1ac357f64169ce159507) |
+| deposit 0.5 | [0x41135c…1c90](https://explorer-test.qday.info/tx/0x41135c4cc79be9ac969ad360954ec94b73b629b6e8fbf484814e7bbbc1201c90) |
+| addPayee "Smoke Payee" | [0xa092b1…4799](https://explorer-test.qday.info/tx/0xa092b1f43c1408d0025db101e77d1c14149dbbefa5a8777b7817fe02c0694799) |
+| confirmPayee (re-entered address) | [0x7b8f3d…7fd7](https://explorer-test.qday.info/tx/0x7b8f3db920958237a9edb15ec99098b9127833a24a7fcba1eea07828ffd57fd7) |
+| setPayeeLimit 0.25/tx, 0.5/day, 30d | [0x91723f…d498](https://explorer-test.qday.info/tx/0x91723f734b9c514383b0fa46d12bc534c1675b850d9a3fb741a356c33bfcd498) |
+| previewPayment 0.30 → `OverPayeeTxCap` (7); 0.10 → `None` (0) | eth_call |
+| pay 0.1 tUSD8, memo "Week 2 smoke test" → receipt #1 | [0x658a79…d292](https://explorer-test.qday.info/tx/0x658a79fc542f4afb1d3de2533a9e9629836b19fff46143487de0e503e1c2d292) |
+
+Result: the payee received 0.1 tUSD8, the vault balance is 0.4, 0.25 is left under the cap, and the receipt shows in the web app.
 
 ## The problem
 <!-- TODO: 1 paragraph. Creators pay collaborators by handle, not by raw address; lookalike / poisoned addresses and unlimited approvals cause losses; AI agents that can move money need hard limits. -->
