@@ -3,7 +3,9 @@
 **Video:** [`demo/paybound-demo.mp4`](../demo/paybound-demo.mp4) (3:45, 1080p, Kokoro `af_heart` voiceover, stereo AAC). Phone-friendly 720p copy: [`demo/paybound-demo-mobile.mp4`](../demo/paybound-demo-mobile.mp4). The full scene-by-scene script is in [`demo/SCRIPT.md`](../demo/SCRIPT.md).
 **Live app:** https://paybound-qday.netlify.app
 
-## Story (what judges see)
+The video's app frames come from the live site with a read-only stand-in wallet that refuses to sign. The on-chain payment in the video was signed from the deployer wallet with `cast`, using the Ask draft's own `ref`, memo and amount (see [`demo/SCRIPT.md`](../demo/SCRIPT.md)).
+
+## Story (what judges see, 3:45)
 1. **Problem:** AI agents moving stablecoins can be tricked into paying the wrong address (address poisoning, prompt injection, unlimited approvals).
 2. **Fix:** a confirmed payee book, on-chain caps and expiry, revocable agent sessions and pause, all enforced by `PayboundVault` on QDay Aevum with tUSD8.
 3. **Ask tab:** “send the smoke payee five cents for testing” returns a draft (LLM parse plus guard rails plus `previewPayment()`), then Approve.

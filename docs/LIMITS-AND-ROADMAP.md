@@ -1,4 +1,4 @@
-# Limits and roadmap (outline)
+# Limits and roadmap
 
 ## Known limits
 - Testnet only (Aevum 44005), test tokens only (tUSD8, tQDAY).
@@ -7,6 +7,10 @@
 - Payee labels are public on-chain.
 - Fixed (not sliding) period windows.
 - Not audited.
+- Blockscout source verification fails on QDay's side (`Fail - Unable to verify`; the verifier lists no compiler versions). The bytecode matches a local build; re-verify once it's fixed.
+- WalletConnect is optional and off until `VITE_WC_PROJECT_ID` is set. Phones use wallet in-app browsers or deep links.
+- The demo video's approval is a scripted signature (`cast`), not a live wallet tap.
+- The contract doesn't reject a reused `ref`. Double-pay protection is in the app, and caps bound the worst case.
 
 ## Roadmap
 - Swap our session `Limit`s for official ERC-4337 session keys when QDay publishes addresses.

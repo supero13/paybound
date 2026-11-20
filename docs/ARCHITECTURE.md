@@ -1,10 +1,12 @@
-# Architecture (outline)
+# Architecture
 
 ## Components
 - **PayeeRegistry**: per-creator address book. `addPayee` → Pending; `confirmPayee(id, reenteredAddress)` → Confirmed (after an optional `confirmDelayOf`, max 7 days); `removePayee` is permanent per id.
 - **PayboundVault**: multi-tenant custody of tUSD8. Per-creator balances, per-payee `Limit`s, per-agent session `Limit`s, creator pause, guardian global pause, and `previewPayment` dry-run returning a `Blocker` code.
-- **Web app**: wagmi/viem, hard-locked to 44005.
-- **Assistant**: propose-only drafter. It has no keys and cannot add payees or change limits.
+- **Web app** (`web/`): Vite + React + wagmi/viem, hard-locked to 44005. Six tabs: Ask, Pay, Payees, Limits, Vault, Receipts. Every write is simulated first, and `Blocker` codes and errors are shown in plain English.
+- **Draft endpoint** (`web/netlify/functions/draft.mts`, `POST /api/draft`): reads the creator's payees and limits from the chain, calls the assistant core, runs `previewPayment()`, and returns a draft with a unique `ref` hash. It uses a read-only RPC and holds no wallet keys. The optional LLM key is a Netlify secret env var.
+- **Assistant** (`assistant/src/core.ts`, `llm.ts`, `lookalike.ts`): propose-only drafter with a rule-based parser and an optional OpenAI-compatible LLM (the live site uses Groq `openai/gpt-oss-120b`). It has no keys and cannot add payees or change limits.
+- **Guardian**: the vault's `owner` (currently the testnet deployer). It can only set the global payment pause and can't move funds.
 
 ## Who can sign what
 | Action | Creator | Session agent | Guardian | Assistant |
@@ -29,10 +31,24 @@
 
 ## QDay features used vs. not depended on
 - Used: Aevum 44005 EVM (cdk-erigon; compiled for `paris`), official tUSD8, tQDAY gas, explorer.
-- Not depended on: x402, the stablecoin paymaster, ERC-4337 session wallets, ERC-8004 agent registry, and PQC precompiles. They're optional upgrades if official addresses are published. <!-- TODO links -->
+- Not depended on: x402, the stablecoin paymaster, ERC-4337 session wallets, ERC-8004 agent registry, and PQC precompiles. They're optional upgrades once official addresses are published.
 
 ## Diagram
-<!-- TODO: export a diagram image -->
+```
+Ask tab ──text──▶ /api/draft (Netlify Function)
+                   reads payees + limits from chain, LLM or rule parser,
+                   guard rails, previewPayment()
+                         │ draft (no keys)
+                         ▼
+Web app ──creator signs pay()──▶ PayboundVault ──tUSD8──▶ confirmed payee
+            │                       │  caps, sessions, pause, receipts
+            └──add / confirm──────▶ PayeeRegistry
+```
+
+## Receipts and idempotency
+- Every `pay()` emits `PaymentExecuted` with a unique, incrementing `receiptId` and the draft's `ref`.
+- The Receipts tab scans logs from the deploy block in ≤1000-block pages, caches them locally, and dedupes by `txHash:logIndex`. A receipt is "Payment seen" at `latest` and "Payment final" at or below the node's `finalized` block.
+- Each draft has a unique `ref`. Once a draft is sent, its Approve button is disabled, and buttons stay disabled while a tx is pending. The contract does **not** reject a reused `ref`, so double-pay protection is in the app, and the per-payee caps bound the worst case on-chain.
 
 ## Assistant safety model
 The assistant is a **drafting** layer. It has no keys, no allowance and no session, so it can't move funds even if fully compromised.
