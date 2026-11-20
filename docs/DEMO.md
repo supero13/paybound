@@ -1,6 +1,6 @@
 # Demo
 
-**Video:** [`demo/paybound-demo.mp4`](../demo/paybound-demo.mp4) (3:45, 1080p, Kokoro `af_heart` voiceover, stereo AAC). Phone-friendly 720p copy: [`demo/paybound-demo-mobile.mp4`](../demo/paybound-demo-mobile.mp4). The full scene-by-scene script is in [`demo/SCRIPT.md`](../demo/SCRIPT.md).
+**Video:** [`demo/paybound-demo.mp4`](../demo/paybound-demo.mp4) (3:45, 1080p, Kokoro `af_heart` voiceover, stereo AAC). Phone-friendly 720p copy: [`demo/paybound-demo-mobile.mp4`](../demo/paybound-demo-mobile.mp4). Vertical 9:16 (1080×1920) copy for Shorts/Reels/X: [`demo/paybound-demo-vertical.mp4`](../demo/paybound-demo-vertical.mp4). The full scene-by-scene script is in [`demo/SCRIPT.md`](../demo/SCRIPT.md).
 **Live app:** https://paybound-qday.netlify.app
 
 The video's app frames come from the live site with a read-only stand-in wallet that refuses to sign. The on-chain payment in the video was signed from the deployer wallet with `cast`, using the Ask draft's own `ref`, memo and amount (see [`demo/SCRIPT.md`](../demo/SCRIPT.md)).

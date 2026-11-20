@@ -10,7 +10,7 @@ You tell Paybound who to pay in plain English. It drafts the payment, and you ap
 |---|---|
 | Live app | https://paybound-qday.netlify.app (on a phone, open it in your wallet's in-app browser, or use the "Open in MetaMask" links) |
 | Repo | https://github.com/supero13/paybound |
-| Demo video | [`demo/paybound-demo.mp4`](demo/paybound-demo.mp4) (3:45, 1080p, with voiceover). Phone copy: [`demo/paybound-demo-mobile.mp4`](demo/paybound-demo-mobile.mp4) (720p). Script: [`demo/SCRIPT.md`](demo/SCRIPT.md) |
+| Demo video | [`demo/paybound-demo.mp4`](demo/paybound-demo.mp4) (3:45, 1080p, with voiceover). Phone copy: [`demo/paybound-demo-mobile.mp4`](demo/paybound-demo-mobile.mp4) (720p). Vertical 9:16: [`demo/paybound-demo-vertical.mp4`](demo/paybound-demo-vertical.mp4). Script: [`demo/SCRIPT.md`](demo/SCRIPT.md) |
 | Sample payout (AI draft, signed on-chain) | [`0x28dba4e6…71d74f`](https://explorer-test.qday.info/tx/0x28dba4e6a8556e964cf3e6e975c584be2164ab0c64121808d1b8ab1e6a71d74f), 0.05 tUSD8 to "Smoke Payee", block 3654295 |
 | Network | QDay Aevum Testnet, chain ID `44005` (`0xABE5`), RPC `https://rpc-test.qday.info`, explorer https://explorer-test.qday.info |
 | Tests | **64 passing**: 44 Foundry (unit, 2 fuzz, 1 Aevum fork) + 20 assistant |
