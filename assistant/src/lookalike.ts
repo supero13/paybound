@@ -1,10 +1,7 @@
-/**
- * Address-poisoning heuristic: flags an address that shares the same first and last
- * characters as a known payee but is not identical. Attackers generate vanity addresses
- * that match the 4-6 characters wallets usually display.
- */
-export function lookalikeOf(candidate: string, known: string[], edge = 4): string | null {
+/** Address-poisoning heuristic: same first/last `edge` hex chars as a known address, but different. */
+export function findLookalike(candidate: string, known: string[], edge = 4): string | null {
   const c = candidate.toLowerCase().replace(/^0x/, "");
+  if (c.length !== 40) return null;
   for (const k of known) {
     const kk = k.toLowerCase().replace(/^0x/, "");
     if (kk === c) continue;

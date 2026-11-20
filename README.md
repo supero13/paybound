@@ -26,6 +26,38 @@ Constructor: `PayboundVault(tUSD8, PayeeRegistry, guardian)`. Compiler: solc 0.8
 
 **Source verification:** submitted to the explorer on 17 Nov 2026, but it returned `Fail - Unable to verify`. The explorer's verifier appears not to be set up yet: it lists no Solidity compiler versions, and no contract on it is verified, not even the official tUSD8. Re-run the `forge verify-contract` commands below once that's fixed.
 
+## AI drafting assistant (week 3)
+The **🤖 Ask** tab is the default screen. Type something like *"send Smoke Payee 0.05 for testing"* and Paybound returns a **draft**: payee, amount, memo, and the live `previewPayment()` result in plain English. Nothing moves until you tap **Approve & sign** and sign in your wallet.
+
+- **Endpoint:** `POST /api/draft` `{ creator, text }`, a Netlify Function (`web/netlify/functions/draft.mts`). It reads the creator's payees and limits **from the chain** (PayeeRegistry and PayboundVault on 44005), never from the user's text.
+- **Core logic:** `assistant/src/core.ts` is pure TypeScript with no dependencies, unit-tested in `assistant/test/core.test.ts` (18 tests).
+- **Refusals:**
+  - Unknown, pending, or removed payees, and confirmed payees with no or expired limit
+  - Over the per-payment cap or over what's left in the period
+  - Missing, zero, ambiguous, or more-than-6-decimal amounts
+- **Untrusted input:**
+  - Raw addresses typed in chat are ignored and never used or auto-added. Lookalikes of a payee's address are flagged as address poisoning.
+  - Prompt-injection text is flagged, and in a memo it blocks the draft until you remove it. Memos with addresses or links are blocked too.
+- **Defense in depth:** before signing, the browser re-checks the draft's payee id and wallet against its own on-chain read of the payee book.
+- **LLM is optional and provider-agnostic.** Set these Netlify env vars to switch it on; without them a deterministic rule-based parser runs, so the demo works with no key.
+
+  | Var | Example |
+  |---|---|
+  | `LLM_API_KEY` | key for any OpenAI-compatible Chat Completions API (required to enable) |
+  | `LLM_BASE_URL` | `https://api.openai.com/v1` (default), or e.g. `https://api.groq.com/openai/v1`, `https://openrouter.ai/api/v1` |
+  | `LLM_MODEL` | `gpt-4o-mini` (default) |
+
+  The model only sees confirmed payee **labels** (no addresses or balances) and must return `{payee_label, amount, memo}`. Every field then goes through the same guard rails, so an invented label or amount is rejected. If the LLM fails or times out (8s), the built-in parser is used.
+
+| Draft ready | Refusals (injection, poisoning, unknown payee) | Phone: open in wallet |
+|---|---|---|
+| ![](docs/screenshots/mobile-ask.png) | ![](docs/screenshots/mobile-ask-refusals.png) | ![](docs/screenshots/mobile-connect-deeplinks.png) |
+
+## Connecting from a phone
+- **Inside a wallet's browser** (MetaMask, Trust, Coinbase, OKX), the injected wallet connects directly.
+- **In normal Safari or Chrome**, Paybound shows **Open in MetaMask / Trust Wallet / Coinbase Wallet / OKX Wallet** deep links (e.g. `https://metamask.app.link/dapp/paybound-qday.netlify.app`), which reopen the app inside the wallet.
+- **WalletConnect** is wired in and switches on when `VITE_WC_PROJECT_ID` (a Reown / WalletConnect Cloud project id) is set at build time.
+
 ## Web app (week 2)
 Mobile-first, bold UI with five tabs:
 
@@ -85,7 +117,8 @@ AI draft layer (assistant/)  ──drafts only──▶  Web app (web/)  ──c
 |---|---|
 | `contracts/` | Foundry project: `PayeeRegistry.sol`, `PayboundVault.sol`, tests, deploy script |
 | `web/` | Vite + React + wagmi/viem frontend (hard-locked to chain 44005) |
-| `assistant/` | Propose-only draft service (no keys); guard rails and prompt-injection tests |
+| `assistant/` | Propose-only drafting core and optional LLM adapter (no keys); guard-rail and prompt-injection tests |
+| `web/netlify/functions/` | `/api/draft` Netlify Function (reads chain, calls core, previewPayment) |
 | `scripts/` | Helpers (ABI export) |
 | `docs/` | Architecture, demo script, limits and roadmap |
 
@@ -126,7 +159,8 @@ npm install && npm run dev
 
 ### Assistant
 ```bash
-cd assistant && npm test && npm start   # POST http://localhost:8787/draft
+cd assistant && npm test                 # 18 tests: resolution, refusals, injection, LLM re-validation
+cd web && npx netlify dev                # serves the app + /api/draft locally
 ```
 
 ## Safety controls

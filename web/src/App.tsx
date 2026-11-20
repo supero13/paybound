@@ -10,8 +10,11 @@ import { PayeesPanel } from "./components/PayeesPanel";
 import { LimitsPanel } from "./components/LimitsPanel";
 import { PayPanel } from "./components/PayPanel";
 import { ReceiptsPanel } from "./components/ReceiptsPanel";
+import { AskPanel } from "./components/AskPanel";
+import { WALLET_LINKS } from "./wagmi";
 
 const TABS = [
+  { id: "ask", icon: "🤖", label: "Ask" },
   { id: "pay", icon: "⚡", label: "Pay" },
   { id: "payees", icon: "👥", label: "Payees" },
   { id: "limits", icon: "🛡️", label: "Limits" },
@@ -26,10 +29,11 @@ export default function App() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const wrongChain = isConnected && chainId !== aevum.id;
+  const hasInjected = typeof window !== "undefined" && !!(window as { ethereum?: unknown }).ethereum;
   const me = !wrongChain ? address : undefined;
   const st = useCreatorState(me);
   const { scan, finalized, progress } = useScan();
-  const [tab, setTab] = useState<Tab>(isConnected ? "pay" : "receipts");
+  const [tab, setTab] = useState<Tab>(isConnected ? "ask" : "receipts");
   const receipts = scan.data?.receipts ?? [];
 
   return (
@@ -56,11 +60,34 @@ export default function App() {
               <li>⏸ <b>Pause or revoke</b> any time; withdrawals always work</li>
               <li>🧾 <b>Receipts</b> for every payout, linked on the explorer</li>
             </ul>
-            <button className="big" disabled={isPending || !connectors[0]} onClick={() => connect({ connector: connectors[0] })}>
-              Connect wallet
-            </button>
+            {hasInjected &&
+              connectors
+                .filter((c) => c.type === "injected")
+                .slice(0, 1)
+                .map((c) => (
+                  <button key={c.uid} className="big" disabled={isPending} onClick={() => connect({ connector: c })}>
+                    Connect wallet
+                  </button>
+                ))}
+            {connectors
+              .filter((c) => c.type === "walletConnect")
+              .map((c) => (
+                <button key={c.uid} className={hasInjected ? "big ghost" : "big"} disabled={isPending} onClick={() => connect({ connector: c })}>
+                  WalletConnect (scan or pick a wallet)
+                </button>
+              ))}
+            {!hasInjected && (
+              <div className="wallets">
+                <p className="muted small">No wallet found in this browser. Open Paybound in your wallet app:</p>
+                {WALLET_LINKS.map((w) => (
+                  <a key={w.name} className="walletlink" href={w.href}>
+                    Open in {w.name} →
+                  </a>
+                ))}
+              </div>
+            )}
             {error && <p className="status error">{error.message.split("\n")[0]}</p>}
-            <p className="muted small">On a phone, open this page inside your wallet's browser (e.g. MetaMask → Browser). QDay Aevum Testnet · chain 44005 · test tokens only.</p>
+            <p className="muted small">QDay Aevum Testnet · chain 44005 · test tokens only.</p>
           </section>
         ) : wrongChain ? (
           <section className="card danger">
@@ -72,6 +99,7 @@ export default function App() {
           <p className="muted">{st.error ? `Couldn't read the chain: ${st.error.message}` : "Loading your vault…"}</p>
         ) : (
           <>
+            {tab === "ask" && <AskPanel st={st.data} me={me!} />}
             {tab === "pay" && <PayPanel st={st.data} me={me!} />}
             {tab === "payees" && <PayeesPanel st={st.data} me={me!} receipts={receipts} />}
             {tab === "limits" && <LimitsPanel st={st.data} me={me!} agents={scan.data?.agents ?? []} />}
