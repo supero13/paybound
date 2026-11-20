@@ -116,11 +116,20 @@ def frame_for(sc, shot=None):
 def dur(path):
     return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]).decode())
 
-segs = []
+import wave, array
+XF = 0.4      # crossfade between scenes (video only; narration never overlaps or changes speed)
+LEAD = 0.35   # silence before narration in each scene
+TAIL = 0.75   # silence after narration before the crossfade starts
+RATE = 22050  # Piper output rate; audio is never resampled in Python, only by ffmpeg's encoder
+clips, starts, audio = [], [], []
+t = 0.0
 for i, sc in enumerate(SCENES):
     wav = f"{OUT}/{i:02d}-{sc['id']}.wav"
-    subprocess.run(["/tmp/piper/bin/piper", "-m", "/tmp/voices/en_US-ryan-high.onnx", "--length_scale", "0.95", "--output_file", wav], input=sc["vo"].encode(), check=True, capture_output=True)
-    total = dur(wav) + 0.9
+    subprocess.run(["/tmp/piper/bin/piper", "-m", "/tmp/voices/en_US-ryan-high.onnx", "--output_file", wav], input=sc["vo"].encode(), check=True, capture_output=True)
+    with wave.open(wav) as w:
+        assert w.getframerate() == RATE and w.getnchannels() == 1 and w.getsampwidth() == 2
+        pcm = array.array("h", w.readframes(w.getnframes()))
+    total = LEAD + len(pcm) / RATE + TAIL + XF   # scene length follows the narration
     shots = sc.get("frames") or [None]
     weights = sc.get("weights") or [1] * len(shots)
     lst = f"{OUT}/{i:02d}.txt"
@@ -129,12 +138,31 @@ for i, sc in enumerate(SCENES):
             png = f"{OUT}/{i:02d}-{j:02d}.png"; frame_for(sc, sh).save(png)
             fh.write(f"file '{png}'\nduration {total * wt / sum(weights):.3f}\n")
         fh.write(f"file '{png}'\n")
-    mp4 = f"{OUT}/{i:02d}.mp4"
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav,
-                    "-filter_complex", f"[0:v]fps=30,format=yuv420p,fade=t=in:st=0:d=0.3,fade=t=out:st={total-0.3:.2f}:d=0.3[v];[1:a]adelay=300|300,apad,atrim=0:{total:.2f},aformat=sample_rates=44100:channel_layouts=stereo[a]",
-                    "-map", "[v]", "-map", "[a]", "-t", f"{total:.2f}", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac", "-b:a", "128k", mp4], check=True)
-    segs.append(mp4); print(sc["id"], f"{total:.1f}s")
-with open(f"{OUT}/all.txt", "w") as fh:
-    fh.writelines(f"file '{s}'\n" for s in segs)
-subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", f"{OUT}/all.txt", "-c", "copy", "-movflags", "+faststart", f"{D}/paybound-demo.mp4"], check=True)
+    clip = f"{OUT}/{i:02d}.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-vf", "fps=30,format=yuv420p",
+                    "-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-an", clip], check=True)
+    clips.append((clip, total)); starts.append(t); audio.append(pcm)
+    print(sc["id"], f"start {t:.1f}s len {total:.1f}s")
+    t += total - XF
+length = t + XF
+# one continuous narration track at the original rate
+track = array.array("h", bytes(2 * int(length * RATE + RATE)))
+for st, pcm in zip(starts, audio):
+    o = int((st + LEAD) * RATE)
+    track[o:o + len(pcm)] = pcm
+with wave.open(f"{OUT}/narration.wav", "wb") as w:
+    w.setnchannels(1); w.setsampwidth(2); w.setframerate(RATE); w.writeframes(track.tobytes())
+# video: xfade chain (dissolve, no black frames)
+inputs, fc, prev = [], [], "0:v"
+for c, _ in clips: inputs += ["-i", c]
+for k in range(1, len(clips)):
+    off = starts[k]
+    out = f"v{k}"
+    fc.append(f"[{prev}][{k}:v]xfade=transition=fade:duration={XF}:offset={off:.3f}[{out}]")
+    prev = out
+na = len(clips)
+cmd = ["ffmpeg", "-y", "-loglevel", "error", *inputs, "-i", f"{OUT}/narration.wav", "-filter_complex", ";".join(fc),
+       "-map", f"[{prev}]", "-map", f"{na}:a", "-t", f"{length:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+       "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-movflags", "+faststart", f"{D}/paybound-demo.mp4"]
+subprocess.run(cmd, check=True)
 print("total", f"{dur(f'{D}/paybound-demo.mp4'):.1f}s")

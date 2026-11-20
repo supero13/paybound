@@ -1,6 +1,6 @@
 # Demo
 
-**Video:** [`demo/paybound-demo.mp4`](../demo/paybound-demo.mp4) (about 2:44, 1080p, Piper voiceover). The full scene-by-scene script is in [`demo/SCRIPT.md`](../demo/SCRIPT.md).
+**Video:** [`demo/paybound-demo.mp4`](../demo/paybound-demo.mp4) (about 2:57, 1080p, Piper voiceover). The full scene-by-scene script is in [`demo/SCRIPT.md`](../demo/SCRIPT.md).
 **Live app:** https://paybound-qday.netlify.app
 
 ## Story (what judges see)

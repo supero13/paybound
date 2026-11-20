@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| Demo video | [`demo/paybound-demo.mp4`](demo/paybound-demo.mp4) (2:44, script in [`demo/SCRIPT.md`](demo/SCRIPT.md)) |
+| Demo video | [`demo/paybound-demo.mp4`](demo/paybound-demo.mp4) (2:57, script in [`demo/SCRIPT.md`](demo/SCRIPT.md)) |
 | Live demo | https://paybound-qday.netlify.app (open it in your wallet's in-app browser on mobile) |
 | Network | QDay Aevum Testnet, chain ID `44005` (`0xABE5`) |
 | RPC / Explorer | `https://rpc-test.qday.info` / https://explorer-test.qday.info |
