@@ -19,3 +19,6 @@ web/dist/
 contracts/broadcast/**/*.lock
 web/.netlify/
 .env.llm
+demo/build/
+demo/frames/
+__pycache__/

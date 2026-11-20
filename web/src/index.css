@@ -91,3 +91,4 @@ code { background: #ffffff14; padding: 1px 6px; border-radius: 6px; }
 .wallets { display: grid; gap: 10px; margin-top: 12px; }
 .walletlink { display: block; text-align: center; padding: 14px; border-radius: 14px; font-weight: 800; color: #fff; background: #ffffff10; border: 1px solid #ffffff22; }
 .walletlink:first-of-type { background: linear-gradient(100deg, #f6851b, #e2761b); border: 0; }
+.bubble, .draft, .alert { overflow-wrap: anywhere; } .app { overflow-x: hidden; }
