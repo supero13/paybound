@@ -1,4 +1,4 @@
-"""Render Paybound demo: piper voiceover + PIL frames + ffmpeg. Run: python3 demo/build.py"""
+"""Render Paybound demo: Kokoro TTS voiceover + PIL frames + ffmpeg. Run: python3 demo/build.py"""
 import json, os, subprocess, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 sys.path.insert(0, os.path.dirname(__file__))
@@ -116,16 +116,32 @@ def frame_for(sc, shot=None):
 def dur(path):
     return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]).decode())
 
-import wave, array
+import wave, array, json, re, sys
 XF = 0.4      # crossfade between scenes (video only; narration never overlaps or changes speed)
-LEAD = 0.35   # silence before narration in each scene
-TAIL = 0.75   # silence after narration before the crossfade starts
-RATE = 22050  # Piper output rate; audio is never resampled in Python, only by ffmpeg's encoder
+LEAD = 0.6    # silence before narration in each scene
+TAIL = 1.0    # silence after narration before the crossfade starts (pause between scenes)
+RATE = 24000  # Kokoro output rate; audio is never time-stretched, only resampled by ffmpeg
+# Kokoro (kokoro-onnx, Apache-2.0, runs offline). Model files: github.com/thewh1teagle/kokoro-onnx releases.
+TTS = os.environ.get("TTS_DIR", "/workspace/.tts")
+VOICE, SPEED = os.environ.get("TTS_VOICE", "af_heart"), 0.9
+from scenes import SAY
+def speak(text, wav):
+    for a, b in SAY.items(): text = text.replace(a, b)
+    code = (
+        "import sys,json,numpy as np,wave\n"
+        "from kokoro_onnx import Kokoro\n"
+        f"k=Kokoro('{TTS}/kokoro/kokoro-v1.0.onnx','{TTS}/kokoro/voices-v1.0.bin')\n"
+        "t,v,sp,out=json.loads(sys.stdin.read())\n"
+        "ph=k.tokenizer.phonemize(t,'en-us').replace('\u02c8a\u026av\u02c8\u028cm','\u02c8e\u026av\u0259m')\n"  # Ay-vum -> /'eIv@m/
+        "a,sr=k.create(ph,voice=v,speed=sp,is_phonemes=True,sentence_pause=0.5,clause_pause=0.18)\n"
+        "pcm=(np.clip(a,-1,1)*32767).astype('<i2')\n"
+        "w=wave.open(out,'wb');w.setnchannels(1);w.setsampwidth(2);w.setframerate(sr);w.writeframes(pcm.tobytes());w.close()\n")
+    subprocess.run([f"{TTS}/venv/bin/python", "-c", code], input=json.dumps([text, VOICE, SPEED, wav]).encode(), check=True, capture_output=True)
 clips, starts, audio = [], [], []
 t = 0.0
 for i, sc in enumerate(SCENES):
     wav = f"{OUT}/{i:02d}-{sc['id']}.wav"
-    subprocess.run(["/tmp/piper/bin/piper", "-m", "/tmp/voices/en_US-ryan-high.onnx", "--output_file", wav], input=sc["vo"].encode(), check=True, capture_output=True)
+    speak(sc["vo"], wav)
     with wave.open(wav) as w:
         assert w.getframerate() == RATE and w.getnchannels() == 1 and w.getsampwidth() == 2
         pcm = array.array("h", w.readframes(w.getnframes()))
@@ -161,8 +177,19 @@ for k in range(1, len(clips)):
     fc.append(f"[{prev}][{k}:v]xfade=transition=fade:duration={XF}:offset={off:.3f}[{out}]")
     prev = out
 na = len(clips)
+# two-pass loudness normalisation (EBU R128, I=-16) of the narration, then stereo 48 kHz AAC-LC
+LN = "loudnorm=I=-16:TP=-1.5:LRA=11"
+meas = subprocess.run(["ffmpeg", "-hide_banner", "-i", f"{OUT}/narration.wav", "-af", "pan=stereo|c0=c0|c1=c0," + LN + ":print_format=json", "-f", "null", "-"], capture_output=True, text=True).stderr
+m = json.loads(meas[meas.rindex("{"):meas.rindex("}") + 1])
+AF = (f"pan=stereo|c0=c0|c1=c0,{LN}:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}"
+      f":offset={m['target_offset']}:linear=true,aresample=48000")
+AUD = ["-c:a", "aac", "-profile:a", "aac_low", "-b:a", "160k", "-ar", "48000", "-ac", "2"]
+fc.append(f"[{len(clips)}:a]{AF}[a]")
 cmd = ["ffmpeg", "-y", "-loglevel", "error", *inputs, "-i", f"{OUT}/narration.wav", "-filter_complex", ";".join(fc),
-       "-map", f"[{prev}]", "-map", f"{na}:a", "-t", f"{length:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
-       "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-movflags", "+faststart", f"{D}/paybound-demo.mp4"]
+       "-map", f"[{prev}]", "-map", "[a]", "-t", f"{length:.3f}", "-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+       *AUD, "-movflags", "+faststart", f"{D}/paybound-demo.mp4"]
 subprocess.run(cmd, check=True)
+# phone-friendly 720p copy, same audio settings
+subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f"{D}/paybound-demo.mp4", "-vf", "scale=-2:720:flags=lanczos", "-c:v", "libx264", "-profile:v", "high",
+                "-level", "3.1", "-preset", "medium", "-crf", "26", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", f"{D}/paybound-demo-mobile.mp4"], check=True)
 print("total", f"{dur(f'{D}/paybound-demo.mp4'):.1f}s")
