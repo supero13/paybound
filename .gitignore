@@ -18,3 +18,4 @@ web/dist/
 .DS_Store
 contracts/broadcast/**/*.lock
 web/.netlify/
+.env.llm

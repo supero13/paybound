@@ -66,6 +66,49 @@ export function toUnits(s: string): bigint | null {
   return BigInt(whole) * 10n ** BigInt(DECIMALS) + BigInt(frac.padEnd(DECIMALS, "0") || "0");
 }
 
+const SMALL: Record<string, number> = {
+  zero: 0, a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+};
+const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const UNIT_WORDS = /\b(t?usd8?|usdt?|dollars?|bucks?|tokens?)\b|\$/g;
+
+/**
+ * Deterministic amount phrase -> raw units. Accepts "0.05", "5 tUSD8", "$2", "five", "twenty five",
+ * "five cents", "50 cents", "one point five". Returns null if it can't be parsed exactly.
+ */
+export function phraseToUnits(phrase: string): bigint | null {
+  let p = phrase.toLowerCase().replace(/-/g, " ").replace(UNIT_WORDS, " ").replace(/\s+/g, " ").trim();
+  const cents = /\b(cents?|c)$/.test(p);
+  p = p.replace(/\b(cents?|c)$/, "").trim();
+  let units: bigint | null = null;
+  if (/^\d[\d,]*(\.\d+)?$/.test(p)) units = toUnits(p);
+  else {
+    const words = p.split(" ").filter((w) => w && w !== "and");
+    if (!words.length) return null;
+    let total = 0, cur = 0, i = 0, frac = "";
+    for (; i < words.length; i++) {
+      const w = words[i];
+      if (w in SMALL) cur += SMALL[w];
+      else if (w in TENS) cur += TENS[w];
+      else if (w === "hundred") cur = (cur || 1) * 100;
+      else if (w === "thousand") { total += (cur || 1) * 1000; cur = 0; }
+      else if (w === "point") {
+        for (i++; i < words.length; i++) {
+          const d = SMALL[words[i]];
+          if (d === undefined || d > 9 || words[i] === "a" || words[i] === "an") return null;
+          frac += String(d);
+        }
+        break;
+      } else return null;
+    }
+    units = toUnits(`${total + cur}${frac ? "." + frac : ""}`);
+  }
+  if (units === null) return null;
+  if (cents) return units % 100n === 0n ? units / 100n : null;
+  return units;
+}
+
 export function formatUnits(v: bigint): string {
   const base = 10n ** BigInt(DECIMALS);
   const frac = (v % base).toString().padStart(DECIMALS, "0").replace(/0+$/, "");
@@ -124,8 +167,9 @@ export function finalizeDraft(text: string, proposal: Proposal, payees: ChainPay
     else if (exact) warnings.push(`I ignored the address you typed. I only pay payees by name from your confirmed payee book.`);
     else warnings.push(`I ignored ${short(a)}. I never pay or add addresses typed into chat. Add and confirm new payees in the Payees tab.`);
   }
-  if (looksLikeInjection(text)) {
-    warnings.push("Your message contains instructions to change payees, limits or recipients. I can't do that; only you can, in the app.");
+  const injected = looksLikeInjection(text);
+  if (injected) {
+    blockers.push("Your message contains instructions to change payees, limits or recipients. I can't do that and won't draft from it. Send a plain request like “pay Ada 5 for the logo”.");
   }
 
   // 1. payee must be CONFIRMED on-chain
@@ -154,12 +198,16 @@ export function finalizeDraft(text: string, proposal: Proposal, payees: ChainPay
   if (!proposal.amount) blockers.push("How much? Add an amount in tUSD8, e.g. “0.05”.");
   else if (proposal.amount.startsWith("AMBIGUOUS:")) blockers.push(`I see more than one amount (${proposal.amount.slice(10).split("|").join(", ")}). Send one payment at a time.`);
   else {
-    const literal = new RegExp(`(^|[^\\d.])${esc(proposal.amount)}($|[^\\d])`).test(text.replace(ADDRESS_RE, " "));
-    amount = toUnits(proposal.amount);
+    const phrase = proposal.amount.trim();
+    const clean = text.replace(ADDRESS_RE, " ").toLowerCase().replace(/\s+/g, " ");
+    const literal = /^[\d.,]+$/.test(phrase)
+      ? new RegExp(`(^|[^\\d.])${esc(phrase)}($|[^\\d])`).test(clean)
+      : phrase.length > 0 && clean.includes(phrase.toLowerCase().replace(/\s+/g, " "));
+    amount = phraseToUnits(phrase);
     if (!literal) {
       blockers.push("The amount must be written in your message.");
       amount = null;
-    } else if (amount === null) blockers.push("tUSD8 has 6 decimals; that amount has too many.");
+    } else if (amount === null) blockers.push("I couldn't read that amount exactly. Write it as a number, like 0.05 (tUSD8 has 6 decimals).");
     else if (amount === 0n) blockers.push("Amount must be more than zero.");
     else if (payee) {
       const p = payees.find((x) => x.id === payee!.id)!;
@@ -169,11 +217,11 @@ export function finalizeDraft(text: string, proposal: Proposal, payees: ChainPay
   }
 
   // 4. memo hygiene (memos are public, on-chain)
-  let memo = proposal.memo.slice(0, 140);
-  if (memo && (looksLikeInjection(memo) || /0x[0-9a-fA-F]{6,}/.test(memo) || /https?:\/\/|www\./i.test(memo))) {
+  let memo = proposal.memo.replace(/^\s*for\s+/i, "").trim().slice(0, 140);
+  if (memo && ((looksLikeInjection(memo) && !injected) || /0x[0-9a-fA-F]{6,}/.test(memo) || /https?:\/\/|www\./i.test(memo))) {
     blockers.push("The memo contains instructions, an address or a link. Memos are public, so keep it to a short description like “logo design”.");
     memo = "";
-  }
+  } else if (injected) memo = "";
 
   return {
     ok: blockers.length === 0,

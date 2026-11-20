@@ -30,14 +30,14 @@ Constructor: `PayboundVault(tUSD8, PayeeRegistry, guardian)`. Compiler: solc 0.8
 The **🤖 Ask** tab is the default screen. Type something like *"send Smoke Payee 0.05 for testing"* and Paybound returns a **draft**: payee, amount, memo, and the live `previewPayment()` result in plain English. Nothing moves until you tap **Approve & sign** and sign in your wallet.
 
 - **Endpoint:** `POST /api/draft` `{ creator, text }`, a Netlify Function (`web/netlify/functions/draft.mts`). It reads the creator's payees and limits **from the chain** (PayeeRegistry and PayboundVault on 44005), never from the user's text.
-- **Core logic:** `assistant/src/core.ts` is pure TypeScript with no dependencies, unit-tested in `assistant/test/core.test.ts` (18 tests).
+- **Core logic:** `assistant/src/core.ts` is pure TypeScript with no dependencies, unit-tested in `assistant/test/core.test.ts` (20 tests).
 - **Refusals:**
   - Unknown, pending, or removed payees, and confirmed payees with no or expired limit
   - Over the per-payment cap or over what's left in the period
   - Missing, zero, ambiguous, or more-than-6-decimal amounts
 - **Untrusted input:**
   - Raw addresses typed in chat are ignored and never used or auto-added. Lookalikes of a payee's address are flagged as address poisoning.
-  - Prompt-injection text is flagged, and in a memo it blocks the draft until you remove it. Memos with addresses or links are blocked too.
+  - Prompt-injection text anywhere in the message blocks the draft. Memos with addresses or links are blocked too.
 - **Defense in depth:** before signing, the browser re-checks the draft's payee id and wallet against its own on-chain read of the payee book.
 - **LLM is optional and provider-agnostic.** Set these Netlify env vars to switch it on; without them a deterministic rule-based parser runs, so the demo works with no key.
 
@@ -45,9 +45,11 @@ The **🤖 Ask** tab is the default screen. Type something like *"send Smoke Pay
   |---|---|
   | `LLM_API_KEY` | key for any OpenAI-compatible Chat Completions API (required to enable) |
   | `LLM_BASE_URL` | `https://api.openai.com/v1` (default), or e.g. `https://api.groq.com/openai/v1`, `https://openrouter.ai/api/v1` |
-  | `LLM_MODEL` | `gpt-4o-mini` (default) |
+  | `LLM_MODEL` | `gpt-4o-mini` (default). **Live demo uses Groq `openai/gpt-oss-120b`** with `LLM_BASE_URL=https://api.groq.com/openai/v1` |
 
-  The model only sees confirmed payee **labels** (no addresses or balances) and must return `{payee_label, amount, memo}`. Every field then goes through the same guard rails, so an invented label or amount is rejected. If the LLM fails or times out (8s), the built-in parser is used.
+  The live site runs on **Groq (`openai/gpt-oss-120b`)**. The key is a Netlify *secret* env var, never in git; locally it lives in the gitignored `.env.llm`. Responses include `"parser": "llm"` when the model was used.
+
+  The model only sees confirmed payee **labels** (no addresses or balances) and must return `{payee_label, amount, memo}`. `amount` is the **verbatim phrase** from the message (e.g. "five cents"), which `phraseToUnits()` converts deterministically, so the model never does the arithmetic. Every field then goes through the same guard rails, so an invented label or amount is rejected. If the LLM fails or times out (8s), the built-in parser is used.
 
 | Draft ready | Refusals (injection, poisoning, unknown payee) | Phone: open in wallet |
 |---|---|---|
